@@ -9,6 +9,7 @@ import { env } from './config.js';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
 import { listingsRouter } from './routes/listings.js';
+import { catalogRouter } from './routes/catalog.js';
 
 export const app = express();
 
@@ -23,6 +24,7 @@ app.get('/', (_req, res) => res.json({ name: 'classifieds-api', version: '0.1.0'
 app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/listings', listingsRouter);
+app.use('/api/catalog', catalogRouter);
 
 app.get('/api/docs', (_req, res) => res.json({ message: 'OpenAPI documentation will be expanded in Phase 3.' }));
 

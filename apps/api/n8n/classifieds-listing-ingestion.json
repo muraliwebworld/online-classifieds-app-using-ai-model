@@ -1,0 +1,82 @@
+{
+  "name": "Classifieds - AI listing ingestion",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "classifieds-listing", "responseMode": "onReceived", "options": {} },
+      "id": "listing-webhook",
+      "name": "Listing webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-900, 0],
+      "webhookId": "classifieds-listing"
+    },
+    {
+      "parameters": { "jsCode": "const secret = $json.headers?.['x-webhook-secret'] || $json.headers?.['X-Webhook-Secret'];\nif ($env.N8N_WEBHOOK_SECRET && secret !== $env.N8N_WEBHOOK_SECRET) throw new Error('Invalid webhook secret');\nconst body = $json.body || $json;\nif (!body.listingId || !body.title || !body.description) throw new Error('Invalid listing payload');\nreturn [{ json: body }];" },
+      "id": "validate-payload",
+      "name": "Validate payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/chat/completions", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.OPENAI_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'Moderate and normalize marketplace listings. Return JSON only with is_valid boolean, cleaned_title, cleaned_description, tags array, rejection_reason.' }, { role: 'user', content: `Title: ${$json.title}\nDescription: ${$json.description}` }] } }}", "options": {} },
+      "id": "moderate-listing",
+      "name": "AI moderation and tags",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-420, 0]
+    },
+    {
+      "parameters": { "jsCode": "const original = $('Validate payload').first().json;\nconst result = JSON.parse($json.choices[0].message.content);\nreturn [{ json: { ...original, ...result, embeddingText: `Title: ${result.cleaned_title || original.title}. Category: ${original.categoryId}. Description: ${result.cleaned_description || original.description}. Price: ${original.price} ${original.currency}. Location: ${original.locationId}` } }];" },
+      "id": "normalize-result",
+      "name": "Normalize AI result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 0]
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/embeddings", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.OPENAI_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: 'text-embedding-3-small', input: $json.embeddingText } }}", "options": {} },
+      "id": "create-embedding",
+      "name": "Create embedding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [100, 0]
+    },
+    {
+      "parameters": { "jsCode": "const listing = $('Normalize AI result').first().json;\nconst vector = $json.data[0].embedding;\nreturn [{ json: { ...listing, vector } }];" },
+      "id": "prepare-qdrant",
+      "name": "Prepare Qdrant point",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, 0]
+    },
+    {
+      "parameters": { "method": "PUT", "url": "http://classifieds-qdrant:6333/collections/classifieds_listings/points", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "api-key", "value": "={{$env.QDRANT_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { points: [{ id: $json.listingId, vector: $json.vector, payload: { listing_id: $json.listingId, title: $json.cleaned_title || $json.title, description: $json.cleaned_description || $json.description, price: Number($json.price), currency: $json.currency, category_id: $json.categoryId, location_id: $json.locationId, tags: $json.tags, status: $json.is_valid ? 'published' : 'rejected', created_at: new Date().toISOString() } }] } }}", "options": {} },
+      "id": "qdrant-upsert",
+      "name": "Qdrant upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [600, 0]
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{$env.INTERNAL_API_URL}}/api/listings/ai-callback", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "x-webhook-secret", "value": "={{$env.N8N_WEBHOOK_SECRET}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { listingId: $json.listingId, isValid: $json.is_valid === true, cleanedTitle: $json.cleaned_title, cleanedDescription: $json.cleaned_description, tags: $json.tags || [], rejectionReason: $json.rejection_reason || null } }}", "options": {} },
+      "id": "api-callback",
+      "name": "Publish listing callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [860, 0]
+    }
+  ],
+  "connections": {
+    "Listing webhook": { "main": [[{ "node": "Validate payload", "type": "main", "index": 0 }]] },
+    "Validate payload": { "main": [[{ "node": "AI moderation and tags", "type": "main", "index": 0 }]] },
+    "AI moderation and tags": { "main": [[{ "node": "Normalize AI result", "type": "main", "index": 0 }]] },
+    "Normalize AI result": { "main": [[{ "node": "Create embedding", "type": "main", "index": 0 }]] },
+    "Create embedding": { "main": [[{ "node": "Prepare Qdrant point", "type": "main", "index": 0 }]] },
+    "Prepare Qdrant point": { "main": [[{ "node": "Qdrant upsert", "type": "main", "index": 0 }]] },
+    "Qdrant upsert": { "main": [[{ "node": "Publish listing callback", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "phase-5-initial"
+}

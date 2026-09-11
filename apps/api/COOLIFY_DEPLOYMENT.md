@@ -23,10 +23,10 @@ Set application environment variables as runtime variables only. Do not add
 `JWT_SECRET`, `DATABASE_URL`, or other credentials as Docker build arguments.
 The Dockerfile needs no secrets during the image build.
 
-The container runs database migrations before starting the API:
+The container runs database migrations and idempotent catalog seeding before starting the API:
 
 ```text
-npx prisma migrate deploy && node dist/server.js
+npx prisma migrate deploy && npm run db:seed && node dist/server.js
 ```
 
 Do not use `prisma migrate dev` on the production VPS.

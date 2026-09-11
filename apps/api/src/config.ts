@@ -10,7 +10,8 @@ const envSchema = z.object({
   FRONTEND_ORIGIN: z.string().url().default('http://localhost:3000'),
   COOKIE_SECURE: z.coerce.boolean().default(false),
   N8N_LISTING_WEBHOOK_URL: z.string().url().optional(),
-  N8N_WEBHOOK_SECRET: z.string().optional()
+  N8N_WEBHOOK_SECRET: z.string().optional(),
+  INTERNAL_API_URL: z.string().url().optional()
 });
 
 export const env = envSchema.parse(process.env);

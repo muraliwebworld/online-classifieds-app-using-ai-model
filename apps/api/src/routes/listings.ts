@@ -42,11 +42,56 @@ listingsRouter.post('/', requireAuth, async (req, res, next) => {
       void fetch(env.N8N_LISTING_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...(env.N8N_WEBHOOK_SECRET ? { 'x-webhook-secret': env.N8N_WEBHOOK_SECRET } : {}) },
-        body: JSON.stringify({ listingId: listing.id })
+        body: JSON.stringify({
+          listingId: listing.id,
+          title: input.title,
+          description: input.description,
+          price: input.price,
+          currency: input.currency,
+          categoryId: input.categoryId,
+          locationId: input.locationId,
+          imageUrls: input.imageUrls,
+          sellerId: req.user!.id
+        })
       }).catch((error) => console.error('Unable to dispatch listing to n8n', error));
     }
 
     return res.status(202).json({ listing });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const aiCallbackSchema = z.object({
+  listingId: z.uuid(),
+  isValid: z.boolean(),
+  cleanedTitle: z.string().trim().min(1).max(160).optional(),
+  cleanedDescription: z.string().trim().min(1).max(10000).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  rejectionReason: z.string().max(500).nullable().optional()
+});
+
+listingsRouter.post('/ai-callback', async (req, res, next) => {
+  try {
+    if (env.N8N_WEBHOOK_SECRET && req.header('x-webhook-secret') !== env.N8N_WEBHOOK_SECRET) {
+      return res.status(401).json({ error: 'Invalid workflow signature' });
+    }
+    const input = aiCallbackSchema.parse(req.body);
+    const listing = await prisma.listing.update({
+      where: { id: input.listingId },
+      data: {
+        title: input.cleanedTitle,
+        description: input.cleanedDescription,
+        aiTags: input.tags,
+        status: input.isValid ? 'PUBLISHED' : 'REJECTED',
+        moderationStatus: input.isValid ? 'APPROVED' : 'REJECTED',
+        rejectionReason: input.isValid ? null : (input.rejectionReason ?? 'Listing did not pass moderation'),
+        publishedAt: input.isValid ? new Date() : null,
+        aiJobs: { updateMany: { where: { status: { not: 'complete' } }, data: { status: input.isValid ? 'complete' : 'rejected' } } }
+      },
+      select: { id: true, status: true, moderationStatus: true }
+    });
+    return res.json({ listing });
   } catch (error) {
     return next(error);
   }

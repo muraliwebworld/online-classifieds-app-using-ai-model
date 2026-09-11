@@ -19,7 +19,7 @@
       "position": [-680, 0]
     },
     {
-      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/chat/completions", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.OPENAI_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'Moderate and normalize marketplace listings. Return JSON only with is_valid boolean, cleaned_title, cleaned_description, tags array, rejection_reason.' }, { role: 'user', content: `Title: ${$json.title}\nDescription: ${$json.description}` }] } }}", "options": {} },
+      "parameters": { "method": "POST", "url": "https://openrouter.ai/api/v1/chat/completions", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.OPENROUTER_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }, { "name": "HTTP-Referer", "value": "https://classifieds.videxpulse.com" }, { "name": "X-Title", "value": "VidexPulse Classifieds" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: $env.OPENROUTER_MODERATION_MODEL || 'openai/gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'Moderate and normalize marketplace listings. Return JSON only with is_valid boolean, cleaned_title, cleaned_description, tags array, rejection_reason.' }, { role: 'user', content: `Title: ${$json.title}\nDescription: ${$json.description}` }] } }}", "options": {} },
       "id": "moderate-listing",
       "name": "AI moderation and tags",
       "type": "n8n-nodes-base.httpRequest",
@@ -35,7 +35,7 @@
       "position": [-160, 0]
     },
     {
-      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/embeddings", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.OPENAI_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: 'text-embedding-3-small', input: $json.embeddingText } }}", "options": {} },
+      "parameters": { "method": "POST", "url": "https://openrouter.ai/api/v1/embeddings", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.OPENROUTER_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }, { "name": "HTTP-Referer", "value": "https://classifieds.videxpulse.com" }, { "name": "X-Title", "value": "VidexPulse Classifieds" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: $env.OPENROUTER_EMBEDDING_MODEL || 'openai/text-embedding-3-small', dimensions: 1536, input: $json.embeddingText } }}", "options": {} },
       "id": "create-embedding",
       "name": "Create embedding",
       "type": "n8n-nodes-base.httpRequest",
@@ -78,5 +78,5 @@
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
-  "versionId": "phase-5-initial"
+  "versionId": "phase-5-openrouter"
 }

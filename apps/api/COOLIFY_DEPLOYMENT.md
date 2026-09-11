@@ -75,6 +75,14 @@ The API must use a database separate from n8n. The supplied Compose file uses
 and point the API to it. This prevents Prisma migrations from conflicting with
 n8n's tables.
 
+For the n8n AI workflow, configure these environment variables on the n8n resource:
+
+```text
+OPENROUTER_API_KEY=your-key
+OPENROUTER_MODERATION_MODEL=openai/gpt-4o-mini
+OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small
+```
+
 Example:
 
 ```text

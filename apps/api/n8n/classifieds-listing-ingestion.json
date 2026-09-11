@@ -59,7 +59,7 @@
       "position": [600, 0]
     },
     {
-      "parameters": { "method": "POST", "url": "={{$env.INTERNAL_API_URL}}/api/listings/ai-callback", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "x-webhook-secret", "value": "={{$env.N8N_WEBHOOK_SECRET}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { listingId: $json.listingId, isValid: $json.is_valid === true, cleanedTitle: $json.cleaned_title, cleanedDescription: $json.cleaned_description, tags: $json.tags || [], rejectionReason: $json.rejection_reason || null } }}", "options": {} },
+      "parameters": { "method": "POST", "url": "={{$env.INTERNAL_API_URL}}/api/listings/ai-callback", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "x-webhook-secret", "value": "={{$env.N8N_WEBHOOK_SECRET}}" }, { "name": "Content-Type", "value": "application/json" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ (() => { const listing = $('Prepare Qdrant point').first().json; return { listingId: listing.listingId, isValid: listing.is_valid === true, cleanedTitle: listing.cleaned_title, cleanedDescription: listing.cleaned_description, tags: listing.tags || [], rejectionReason: listing.rejection_reason || null }; })() }}", "options": {} },
       "id": "api-callback",
       "name": "Publish listing callback",
       "type": "n8n-nodes-base.httpRequest",

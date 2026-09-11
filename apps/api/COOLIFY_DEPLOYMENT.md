@@ -70,10 +70,15 @@ Expected health response:
 
 Use the internal PostgreSQL hostname and port from the Coolify network in `DATABASE_URL`. Do not use `localhost`; inside the API container, `localhost` means the API container itself.
 
+The API must use a database separate from n8n. The supplied Compose file uses
+`classifieds_db` for n8n, so create a second database such as `classifieds_app`
+and point the API to it. This prevents Prisma migrations from conflicting with
+n8n's tables.
+
 Example:
 
 ```text
-postgresql://classifieds:strong-password@postgres:5432/classifieds?schema=public
+postgresql://root:strong-password@classifieds-postgres:5432/classifieds_app?schema=public
 ```
 
 The exact hostname depends on the PostgreSQL resource name shown by Coolify.

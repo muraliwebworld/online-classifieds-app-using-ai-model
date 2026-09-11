@@ -25,6 +25,7 @@ This directory is Docker-ready for deployment from GitHub. See [COOLIFY_DEPLOYME
 - `POST /api/auth/login` — obtain a bearer token
 - `POST /api/listings` — authenticated listing submission; creates a `PROCESSING` listing and optionally dispatches its ID to n8n
 - `GET /api/listings/:id` — fetch a published listing
+- `GET /api/search?q=...` — semantic Qdrant search with published-status filtering
 
 ## Production environment
 

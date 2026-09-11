@@ -10,6 +10,7 @@ import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
 import { listingsRouter } from './routes/listings.js';
 import { catalogRouter } from './routes/catalog.js';
+import { searchRouter } from './routes/search.js';
 
 export const app = express();
 
@@ -25,6 +26,7 @@ app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/listings', listingsRouter);
 app.use('/api/catalog', catalogRouter);
+app.use('/api/search', searchRouter);
 
 app.get('/api/docs', (_req, res) => res.json({ message: 'OpenAPI documentation will be expanded in Phase 3.' }));
 

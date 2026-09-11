@@ -11,7 +11,12 @@ const envSchema = z.object({
   COOKIE_SECURE: z.coerce.boolean().default(false),
   N8N_LISTING_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
-  INTERNAL_API_URL: z.string().url().optional()
+  INTERNAL_API_URL: z.string().url().optional(),
+  QDRANT_URL: z.string().url().default('http://classifieds-qdrant:6333'),
+  QDRANT_API_KEY: z.string().optional(),
+  AI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  AI_API_KEY: z.string().min(1).optional(),
+  AI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small')
 });
 
 export const env = envSchema.parse(process.env);

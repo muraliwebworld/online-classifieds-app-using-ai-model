@@ -7,7 +7,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm ci
+# The compiler and Prisma CLI are needed while building. Explicitly include
+# dev dependencies even if the platform injects NODE_ENV=production at build time.
+RUN npm ci --include=dev
 
 COPY prisma ./prisma
 COPY tsconfig.json ./tsconfig.json

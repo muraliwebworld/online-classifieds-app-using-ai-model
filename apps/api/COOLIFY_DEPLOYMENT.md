@@ -19,6 +19,10 @@ The simplest setup is a standalone repository containing the contents of this di
 6. Add the environment variables from `coolify.env.example` using real values.
 7. Deploy the application.
 
+Set application environment variables as runtime variables only. Do not add
+`JWT_SECRET`, `DATABASE_URL`, or other credentials as Docker build arguments.
+The Dockerfile needs no secrets during the image build.
+
 The container runs database migrations before starting the API:
 
 ```text

@@ -1,0 +1,34 @@
+FROM node:20-bookworm-slim AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY prisma ./prisma
+COPY tsconfig.json ./tsconfig.json
+COPY src ./src
+
+RUN npx prisma generate
+RUN npm run build
+
+FROM node:20-bookworm-slim AS production
+
+ENV NODE_ENV=production
+ENV PORT=5000
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/dist ./dist
+
+EXPOSE 5000
+
+USER node
+
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

@@ -14,6 +14,7 @@ marketplaceRouter.delete('/favorites/:listingId', requireAuth, async (req, res, 
 marketplaceRouter.get('/favorites', requireAuth, async (req, res, next) => {
   try { return res.json({ favorites: await prisma.favorite.findMany({ where: { userId: req.user!.id }, include: { listing: { include: { images: true, category: true, location: true } } }, orderBy: { createdAt: 'desc' } }) }); } catch (error) { return next(error); }
 });
+marketplaceRouter.post('/reports', requireAuth, async (req, res, next) => { try { const input=z.object({listingId:z.uuid(),reason:z.string().trim().min(3).max(80),details:z.string().trim().max(1000).optional()}).parse(req.body); const listing=await prisma.listing.findUnique({where:{id:input.listingId},select:{id:true}}); if(!listing)return res.status(404).json({error:'Listing not found'}); const duplicate=await prisma.report.findFirst({where:{userId:req.user!.id,listingId:input.listingId,reason:input.reason}}); if(duplicate)return res.status(409).json({error:'You already reported this listing for this reason'}); return res.status(201).json({report:await prisma.report.create({data:{...input,userId:req.user!.id}})}); } catch(error){return next(error)} });
 
 marketplaceRouter.post('/threads', requireAuth, async (req, res, next) => {
   try {

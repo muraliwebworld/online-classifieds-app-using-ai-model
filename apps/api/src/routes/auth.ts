@@ -4,8 +4,11 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { env } from '../config.js';
 import { prisma } from '../db.js';
+import rateLimit from 'express-rate-limit';
+import { verifyRecaptcha } from '../middleware/recaptcha.js';
 
 export const authRouter = Router();
+authRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many authentication attempts. Try again later.' } }));
 
 const registerSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -25,7 +28,7 @@ function signToken(user: { id: string; role: 'USER' | 'MODERATOR' | 'ADMIN'; sub
   });
 }
 
-authRouter.post('/register', async (req, res, next) => {
+authRouter.post('/register', verifyRecaptcha, async (req, res, next) => {
   try {
     const registrationSetting = await prisma.themeSetting.findUnique({ where: { key: 'registration_enabled' } });
     if (registrationSetting?.value === false) return res.status(403).json({ error: 'Registration is currently disabled' });
@@ -43,7 +46,7 @@ authRouter.post('/register', async (req, res, next) => {
   }
 });
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', verifyRecaptcha, async (req, res, next) => {
   try {
     const input = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: input.email } });

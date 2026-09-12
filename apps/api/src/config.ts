@@ -16,7 +16,9 @@ const envSchema = z.object({
   QDRANT_API_KEY: z.string().optional(),
   AI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
   AI_API_KEY: z.string().min(1).optional(),
-  AI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small')
+  AI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+  RECAPTCHA_SECRET_KEY: z.string().optional(),
+  RECAPTCHA_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5)
 });
 
 export const env = envSchema.parse(process.env);

@@ -22,6 +22,7 @@ FROM node:20-bookworm-slim AS production
 
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV UPLOAD_DIR=/app/uploads
 
 WORKDIR /app
 
@@ -36,6 +37,7 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
+RUN mkdir -p /app/uploads
 
 RUN chown -R node:node /app
 

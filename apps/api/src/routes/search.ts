@@ -63,7 +63,14 @@ searchRouter.get('/', optionalAuth, async (req, res, next) => {
     const ids = hits.map((hit) => String(hit.id));
     const listings = ids.length ? await prisma.listing.findMany({ where: { id: { in: ids }, status: 'PUBLISHED' }, include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true } }) : [];
     const byId = new Map(listings.map((listing) => [listing.id, listing]));
-    return res.json({ mode: 'semantic', listings: hits.map((hit) => ({ ...byId.get(String(hit.id)), id: String(hit.id), score: hit.score, ...(hit.payload as object ?? {}) })).filter((item) => item.title) });
+    const terms = input.q.toLowerCase().split(/\s+/).filter(Boolean);
+    const ranked: Record<string, any>[] = hits.map((hit) => {
+      const item = { ...byId.get(String(hit.id)), id: String(hit.id), score: hit.score, ...(hit.payload as object ?? {}) } as Record<string, any>;
+      const text = `${item.title ?? ''} ${item.description ?? ''} ${(item.aiTags ?? item.tags ?? []).join(' ')}`.toLowerCase();
+      const lexicalMatches = terms.filter((term) => text.includes(term)).length;
+      return { ...item, lexicalScore: lexicalMatches / Math.max(terms.length, 1), score: Number(((hit.score * 0.75) + (lexicalMatches / Math.max(terms.length, 1)) * 0.25).toFixed(6)) };
+    }).filter((item: Record<string, any>) => item.title).sort((a, b) => b.score - a.score);
+    return res.json({ mode: 'hybrid', listings: ranked });
   } catch (error) {
     return next(error);
   }

@@ -5,6 +5,8 @@ import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import { z, ZodError } from 'zod';
+import rateLimit from 'express-rate-limit';
+import path from 'node:path';
 import { env } from './config.js';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
@@ -13,6 +15,7 @@ import { catalogRouter } from './routes/catalog.js';
 import { searchRouter } from './routes/search.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { adminRouter } from './routes/admin.js';
+import { uploadsRouter } from './routes/uploads.js';
 
 export const app = express();
 
@@ -22,6 +25,8 @@ app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use((pinoHttp as unknown as () => express.RequestHandler)());
+app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR ?? '/app/uploads')));
+app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 
 app.get('/', (_req, res) => res.json({ name: 'classifieds-api', version: '0.1.0' }));
 app.use('/health', healthRouter);
@@ -31,6 +36,7 @@ app.use('/api/catalog', catalogRouter);
 app.use('/api/search', searchRouter);
 app.use('/api', marketplaceRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/uploads', uploadsRouter);
 
 app.get('/api/docs', (_req, res) => res.json({ message: 'OpenAPI documentation will be expanded in Phase 3.' }));
 

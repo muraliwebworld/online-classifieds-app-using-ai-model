@@ -9,6 +9,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('1d'),
   FRONTEND_ORIGIN: z.string().url().default('http://localhost:3000'),
   COOKIE_SECURE: z.coerce.boolean().default(false),
+  COOKIE_DOMAIN: z.string().optional(),
   N8N_LISTING_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
   INTERNAL_API_URL: z.string().url().optional(),

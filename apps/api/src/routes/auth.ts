@@ -6,8 +6,12 @@ import { env } from '../config.js';
 import { prisma } from '../db.js';
 import rateLimit from 'express-rate-limit';
 import { verifyRecaptcha } from '../middleware/recaptcha.js';
+import { issueCsrfCookie } from '../middleware/csrf.js';
 
 export const authRouter = Router();
+authRouter.get('/csrf', (req,res) => res.json({ csrfToken: issueCsrfCookie(res) }));
+function setAuthCookie(res: any, token: string) { res.cookie('auth_token', token, { httpOnly: true, secure: env.COOKIE_SECURE || env.NODE_ENV === 'production', sameSite: 'lax', domain: env.COOKIE_DOMAIN, maxAge: 86400000, path: '/' }); }
+authRouter.post('/logout', (_req,res) => { res.clearCookie('auth_token', { httpOnly: true, sameSite: 'lax', secure: env.COOKIE_SECURE || env.NODE_ENV === 'production', domain: env.COOKIE_DOMAIN, path: '/' }); return res.status(204).send(); });
 authRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many authentication attempts. Try again later.' } }));
 
 const registerSchema = z.object({
@@ -40,7 +44,7 @@ authRouter.post('/register', verifyRecaptcha, async (req, res, next) => {
       data: { name: input.name, firstName: input.name, email: input.email, passwordHash },
       select: { id: true, name: true, email: true, role: true, subscriptionTier: true, firstName: true, lastName: true, phone: true, avatarUrl: true, address: true, state: true, country: true, postalCode: true }
     });
-    return res.status(201).json({ user, accessToken: signToken(user) });
+    const accessToken=signToken(user); setAuthCookie(res,accessToken); issueCsrfCookie(res); return res.status(201).json({ user, accessToken });
   } catch (error) {
     return next(error);
   }
@@ -53,9 +57,9 @@ authRouter.post('/login', verifyRecaptcha, async (req, res, next) => {
     if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-    return res.json({
+    const accessToken=signToken(user); setAuthCookie(res,accessToken); issueCsrfCookie(res); return res.json({
       user: { id: user.id, name: user.name, email: user.email, role: user.role, subscriptionTier: user.subscriptionTier },
-      accessToken: signToken(user)
+      accessToken
     });
   } catch (error) {
     return next(error);

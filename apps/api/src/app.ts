@@ -17,6 +17,7 @@ import { marketplaceRouter } from './routes/marketplace.js';
 import { adminRouter } from './routes/admin.js';
 import { uploadsRouter } from './routes/uploads.js';
 import { profileRouter } from './routes/profile.js';
+import { csrfProtection } from './middleware/csrf.js';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -26,6 +27,7 @@ app.use(helmet());
 app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+app.use('/api', csrfProtection);
 app.use((pinoHttp as unknown as () => express.RequestHandler)());
 app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR ?? '/app/uploads')));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));

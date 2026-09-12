@@ -7,7 +7,7 @@ type TokenPayload = { sub: string; role: 'USER' | 'MODERATOR' | 'ADMIN'; subscri
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.header('authorization');
-  const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : req.cookies?.auth_token;
   if (!token) return res.status(401).json({ error: 'Authentication required' });
 
   try {
@@ -23,7 +23,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
 export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const header = req.header('authorization');
-  const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : req.cookies?.auth_token;
   if (token) {
     try {
       const payload = jwt.verify(token, env.JWT_SECRET) as TokenPayload;

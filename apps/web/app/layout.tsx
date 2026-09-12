@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import RecaptchaScript from '../components/RecaptchaScript';
 
 export const metadata: Metadata = {
   title: 'VidexPulse Classifieds',
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><RecaptchaScript />{children}</body>
     </html>
   );
 }

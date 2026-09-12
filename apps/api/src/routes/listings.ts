@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { canUseAi, requireAuth } from '../middleware/auth.js';
+import { verifyRecaptcha } from '../middleware/recaptcha.js';
 import { env } from '../config.js';
 
 export const listingsRouter = Router();
@@ -16,7 +17,7 @@ const createListingSchema = z.object({
   imageUrls: z.array(z.url()).max(12).default([])
 });
 
-listingsRouter.post('/', requireAuth, async (req, res, next) => {
+listingsRouter.post('/', requireAuth, verifyRecaptcha, async (req, res, next) => {
   try {
     const input = createListingSchema.parse(req.body);
     const aiEnabled = canUseAi(req.user);

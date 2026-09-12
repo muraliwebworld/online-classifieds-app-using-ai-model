@@ -27,7 +27,8 @@ export default function PostPage() {
     const form = new FormData(event.currentTarget);
     const token = localStorage.getItem('accessToken');
     if (!token) { setMessage('Please sign in before posting an ad.'); setBusy(false); return; }
-    const response = await fetch(`${API_URL}/api/listings`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ title: form.get('title'), description: form.get('description'), price: form.get('price'), currency: 'INR', categoryId: form.get('categoryId'), locationId: form.get('locationId'), imageUrls: [] }) });
+    let recaptchaToken: string | undefined; const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY; if (siteKey && window.grecaptcha) recaptchaToken = await new Promise<string>((resolve, reject) => window.grecaptcha!.ready(() => window.grecaptcha!.execute(siteKey, { action: 'create_listing' }).then(resolve).catch(reject)));
+    const response = await fetch(`${API_URL}/api/listings`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ title: form.get('title'), description: form.get('description'), price: form.get('price'), currency: 'INR', categoryId: form.get('categoryId'), locationId: form.get('locationId'), imageUrls: [], recaptchaToken }) });
     const data = await response.json(); setMessage(response.ok ? 'Your ad is being reviewed by AI and will go live shortly.' : (data.error ?? 'Unable to submit listing.')); setBusy(false); if (response.ok) (event.target as HTMLFormElement).reset();
   }
   if (checkingAuth) return <main className="site-shell"><div className="container"><section className="section" style={{ maxWidth: 700, paddingTop: 80 }}><p className="hero-copy">Checking your account…</p></section></div></main>;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { env } from '../config.js';
 import { prisma } from '../db.js';
 import { LISTINGS_COLLECTION, qdrant } from '../qdrant.js';
+import { canUseAi, optionalAuth } from '../middleware/auth.js';
 
 export const searchRouter = Router();
 const searchSchema = z.object({
@@ -26,9 +27,25 @@ async function embed(input: string) {
   return vector;
 }
 
-searchRouter.get('/', async (req, res, next) => {
+searchRouter.get('/', optionalAuth, async (req, res, next) => {
   try {
     const input = searchSchema.parse(req.query);
+    if (!canUseAi(req.user)) {
+      const terms = input.q.split(/\s+/).filter(Boolean).map((term) => ({
+        OR: [
+          { title: { contains: term, mode: 'insensitive' as const } },
+          { description: { contains: term, mode: 'insensitive' as const } },
+          { aiTags: { has: term.toLowerCase() } }
+        ]
+      }));
+      const listings = await prisma.listing.findMany({
+        where: { status: 'PUBLISHED', ...(input.category ? { categoryId: input.category } : {}), ...(input.maxPrice ? { price: { lte: input.maxPrice } } : {}), OR: terms },
+        take: input.limit,
+        orderBy: { publishedAt: 'desc' },
+        include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true }
+      });
+      return res.json({ mode: 'keyword', listings });
+    }
     const vector = await embed(input.q);
     const must: Record<string, unknown>[] = [{ key: 'status', match: { value: 'published' } }];
     if (input.category) must.push({ key: 'category_id', match: { value: input.category } });
@@ -38,7 +55,7 @@ searchRouter.get('/', async (req, res, next) => {
     const ids = hits.map((hit) => String(hit.id));
     const listings = ids.length ? await prisma.listing.findMany({ where: { id: { in: ids }, status: 'PUBLISHED' }, include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true } }) : [];
     const byId = new Map(listings.map((listing) => [listing.id, listing]));
-    return res.json({ listings: hits.map((hit) => ({ ...byId.get(String(hit.id)), id: String(hit.id), score: hit.score, ...(hit.payload as object ?? {}) })).filter((item) => item.title) });
+    return res.json({ mode: 'semantic', listings: hits.map((hit) => ({ ...byId.get(String(hit.id)), id: String(hit.id), score: hit.score, ...(hit.payload as object ?? {}) })).filter((item) => item.title) });
   } catch (error) {
     return next(error);
   }

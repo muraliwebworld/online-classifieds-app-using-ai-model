@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { canUseAi, requireAuth } from '../middleware/auth.js';
 import { env } from '../config.js';
 
 export const listingsRouter = Router();
@@ -19,6 +19,7 @@ const createListingSchema = z.object({
 listingsRouter.post('/', requireAuth, async (req, res, next) => {
   try {
     const input = createListingSchema.parse(req.body);
+    const aiEnabled = canUseAi(req.user);
     const listing = await prisma.listing.create({
       data: {
         sellerId: req.user!.id,
@@ -30,15 +31,16 @@ listingsRouter.post('/', requireAuth, async (req, res, next) => {
         originalDescription: input.description,
         price: input.price,
         currency: input.currency,
-        status: 'PROCESSING',
-        moderationStatus: 'PENDING',
+        status: aiEnabled ? 'PROCESSING' : 'PUBLISHED',
+        moderationStatus: aiEnabled ? 'PENDING' : 'APPROVED',
+        publishedAt: aiEnabled ? null : new Date(),
         images: { create: input.imageUrls.map((url, sortOrder) => ({ url, sortOrder })) },
-        aiJobs: { create: { status: 'queued' } }
+        ...(aiEnabled ? { aiJobs: { create: { status: 'queued' } } } : {})
       },
       select: { id: true, status: true, moderationStatus: true, createdAt: true }
     });
 
-    if (env.N8N_LISTING_WEBHOOK_URL) {
+    if (aiEnabled && env.N8N_LISTING_WEBHOOK_URL) {
       void fetch(env.N8N_LISTING_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...(env.N8N_WEBHOOK_SECRET ? { 'x-webhook-secret': env.N8N_WEBHOOK_SECRET } : {}) },

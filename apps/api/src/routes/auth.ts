@@ -18,8 +18,8 @@ const loginSchema = z.object({
   password: z.string().min(1)
 });
 
-function signToken(user: { id: string; role: 'USER' | 'MODERATOR' | 'ADMIN' }) {
-  return jwt.sign({ role: user.role }, env.JWT_SECRET, {
+function signToken(user: { id: string; role: 'USER' | 'MODERATOR' | 'ADMIN'; subscriptionTier: string }) {
+  return jwt.sign({ role: user.role, subscriptionTier: user.subscriptionTier }, env.JWT_SECRET, {
     subject: user.id,
     expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn']
   });
@@ -33,7 +33,7 @@ authRouter.post('/register', async (req, res, next) => {
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await prisma.user.create({
       data: { name: input.name, email: input.email, passwordHash },
-      select: { id: true, name: true, email: true, role: true }
+      select: { id: true, name: true, email: true, role: true, subscriptionTier: true }
     });
     return res.status(201).json({ user, accessToken: signToken(user) });
   } catch (error) {
@@ -49,7 +49,7 @@ authRouter.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     return res.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, subscriptionTier: user.subscriptionTier },
       accessToken: signToken(user)
     });
   } catch (error) {

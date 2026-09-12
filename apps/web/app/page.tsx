@@ -2,6 +2,7 @@ import Link from 'next/link';
 import CategoryNav from '../components/CategoryNav';
 import ListingCard from '../components/ListingCard';
 import SearchBox from '../components/SearchBox';
+import AccountMenu from '../components/AccountMenu';
 import { searchListings } from '../lib/api';
 
 export default async function HomePage() {
@@ -12,7 +13,7 @@ export default async function HomePage() {
       <div className="container">
         <header className="header">
           <Link href="/" className="brand"><span className="brand-mark">✦</span>videxpulse<span style={{ color: 'var(--brand)' }}>.</span></Link>
-          <nav className="nav"><Link href="/search">Browse ads</Link><Link href="/login">Sign in</Link><Link href="/post" className="button button-primary">Post an ad&nbsp; ＋</Link></nav>
+          <AccountMenu />
         </header>
         <section className="hero">
           <div className="eyebrow">The smarter local marketplace</div>

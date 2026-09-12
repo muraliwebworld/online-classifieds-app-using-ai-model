@@ -27,13 +27,15 @@ function signToken(user: { id: string; role: 'USER' | 'MODERATOR' | 'ADMIN'; sub
 
 authRouter.post('/register', async (req, res, next) => {
   try {
+    const registrationSetting = await prisma.themeSetting.findUnique({ where: { key: 'registration_enabled' } });
+    if (registrationSetting?.value === false) return res.status(403).json({ error: 'Registration is currently disabled' });
     const input = registerSchema.parse(req.body);
     const existing = await prisma.user.findUnique({ where: { email: input.email } });
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await prisma.user.create({
-      data: { name: input.name, email: input.email, passwordHash },
-      select: { id: true, name: true, email: true, role: true, subscriptionTier: true }
+      data: { name: input.name, firstName: input.name, email: input.email, passwordHash },
+      select: { id: true, name: true, email: true, role: true, subscriptionTier: true, firstName: true, lastName: true, phone: true, avatarUrl: true, address: true, state: true, country: true, postalCode: true }
     });
     return res.status(201).json({ user, accessToken: signToken(user) });
   } catch (error) {

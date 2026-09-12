@@ -36,6 +36,14 @@ model User {
   passwordHash String
   role         UserRole  @default(USER)
   subscriptionTier String  @default("FREE")
+  firstName      String?
+  lastName       String?
+  phone          String?
+  avatarUrl      String?
+  address        String?
+  state          String?
+  country        String?
+  postalCode     String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   listings     Listing[]

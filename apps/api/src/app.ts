@@ -11,6 +11,8 @@ import { authRouter } from './routes/auth.js';
 import { listingsRouter } from './routes/listings.js';
 import { catalogRouter } from './routes/catalog.js';
 import { searchRouter } from './routes/search.js';
+import { marketplaceRouter } from './routes/marketplace.js';
+import { adminRouter } from './routes/admin.js';
 
 export const app = express();
 
@@ -27,6 +29,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/listings', listingsRouter);
 app.use('/api/catalog', catalogRouter);
 app.use('/api/search', searchRouter);
+app.use('/api', marketplaceRouter);
+app.use('/api/admin', adminRouter);
 
 app.get('/api/docs', (_req, res) => res.json({ message: 'OpenAPI documentation will be expanded in Phase 3.' }));
 

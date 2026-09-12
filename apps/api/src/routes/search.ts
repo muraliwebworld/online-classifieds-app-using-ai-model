@@ -31,6 +31,9 @@ searchRouter.get('/', optionalAuth, async (req, res, next) => {
   try {
     const input = searchSchema.parse(req.query);
     if (!canUseAi(req.user)) {
+      const categoryMatch = await prisma.category.findFirst({
+        where: { OR: [{ slug: input.q.toLowerCase() }, { name: { equals: input.q, mode: 'insensitive' } }] }
+      });
       const terms = input.q.split(/\s+/).filter(Boolean).map((term) => ({
         OR: [
           { title: { contains: term, mode: 'insensitive' as const } },
@@ -39,7 +42,12 @@ searchRouter.get('/', optionalAuth, async (req, res, next) => {
         ]
       }));
       const listings = await prisma.listing.findMany({
-        where: { status: 'PUBLISHED', ...(input.category ? { categoryId: input.category } : {}), ...(input.maxPrice ? { price: { lte: input.maxPrice } } : {}), OR: terms },
+        where: {
+          status: 'PUBLISHED',
+          categoryId: input.category ?? categoryMatch?.id,
+          ...(input.maxPrice ? { price: { lte: input.maxPrice } } : {}),
+          ...(categoryMatch ? {} : { OR: terms })
+        },
         take: input.limit,
         orderBy: { publishedAt: 'desc' },
         include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true }

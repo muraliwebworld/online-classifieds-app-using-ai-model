@@ -7,8 +7,12 @@ import { prisma } from '../db.js';
 import rateLimit from 'express-rate-limit';
 import { verifyRecaptcha } from '../middleware/recaptcha.js';
 import { issueCsrfCookie } from '../middleware/csrf.js';
+import { requireAuth } from '../middleware/auth.js';
+import { getAuth } from 'firebase-admin/auth';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
 
 export const authRouter = Router();
+function firebaseAuth(){ if(!env.FIREBASE_PROJECT_ID||!env.FIREBASE_CLIENT_EMAIL||!env.FIREBASE_PRIVATE_KEY) throw new Error('Firebase is not configured'); const app=getApps()[0]??initializeApp({credential:cert({projectId:env.FIREBASE_PROJECT_ID,clientEmail:env.FIREBASE_CLIENT_EMAIL,privateKey:env.FIREBASE_PRIVATE_KEY.replace(/\\n/g,'\n')})}); return getAuth(app); }
 authRouter.get('/csrf', (req,res) => res.json({ csrfToken: issueCsrfCookie(res) }));
 function setAuthCookie(res: any, token: string) { res.cookie('auth_token', token, { httpOnly: true, secure: env.COOKIE_SECURE || env.NODE_ENV === 'production', sameSite: 'lax', domain: env.COOKIE_DOMAIN, maxAge: 86400000, path: '/' }); }
 authRouter.post('/logout', (_req,res) => { res.clearCookie('auth_token', { httpOnly: true, sameSite: 'lax', secure: env.COOKIE_SECURE || env.NODE_ENV === 'production', domain: env.COOKIE_DOMAIN, path: '/' }); return res.status(204).send(); });
@@ -65,3 +69,4 @@ authRouter.post('/login', verifyRecaptcha, async (req, res, next) => {
     return next(error);
   }
 });
+authRouter.post('/firebase', verifyRecaptcha, async (req,res,next)=>{try{const input=z.object({idToken:z.string().min(20)}).parse(req.body);const decoded=await firebaseAuth().verifyIdToken(input.idToken);if(!decoded.email)return res.status(400).json({error:'Firebase account has no email'});let user=await prisma.user.findFirst({where:{OR:[{firebaseUid:decoded.uid},{email:decoded.email.toLowerCase()}]}});if(!user){const setting=await prisma.themeSetting.findUnique({where:{key:'registration_enabled'}});if(setting?.value===false)return res.status(403).json({error:'Registration is currently disabled'});user=await prisma.user.create({data:{name:decoded.name??decoded.email.split('@')[0],firstName:decoded.name??null,email:decoded.email.toLowerCase(),passwordHash:bcrypt.hashSync(Math.random().toString(36)+Date.now(),12),firebaseUid:decoded.uid}})}else if(!user.firebaseUid)user=await prisma.user.update({where:{id:user.id},data:{firebaseUid:decoded.uid}});const accessToken=signToken(user);setAuthCookie(res,accessToken);issueCsrfCookie(res);return res.json({user,accessToken})}catch(error){return next(error)}});

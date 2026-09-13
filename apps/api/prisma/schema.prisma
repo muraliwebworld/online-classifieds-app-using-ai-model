@@ -44,6 +44,10 @@ model User {
   state          String?
   country        String?
   postalCode     String?
+  firebaseUid    String? @unique
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret String?
+  twoFactorReminderDismissedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   listings     Listing[]

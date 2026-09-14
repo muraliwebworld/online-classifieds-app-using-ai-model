@@ -1,4 +1,313 @@
-'use client';
-import Link from'next/link';import{useEffect,useState}from'react';import{QRCodeSVG}from'qrcode.react';import AccountMenu from'../../components/AccountMenu';
-const API=process.env.NEXT_PUBLIC_API_URL??'http://localhost:5000';
-export default function ProfilePage(){const[profile,setProfile]=useState<any>({}),[message,setMessage]=useState(''),[secret,setSecret]=useState(''),[otpauth,setOtpauth]=useState(''),[code,setCode]=useState('');const token=()=>localStorage.getItem('accessToken')??'';const headers=()=>({authorization:`Bearer ${token()}`,'content-type':'application/json'});useEffect(()=>{if(!token()){location.href='/login?next=/profile';return}fetch(`${API}/api/profile`,{credentials:'include',headers:headers()}).then(r=>r.json()).then(d=>setProfile(d.profile??{}))},[]);const field=(n:string,l:string,t='text')=><label>{l}<input name={n} type={t} defaultValue={profile[n]??''} style={{width:'100%',padding:10,border:'1px solid var(--line)',borderRadius:10,marginTop:6}}/></label>;async function save(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const r=await fetch(`${API}/api/profile`,{method:'PATCH',credentials:'include',headers:headers(),body:JSON.stringify(Object.fromEntries(new FormData(e.currentTarget).entries()))});setMessage(r.ok?'Profile updated.':'Unable to update profile.')}async function setup(){setMessage('Preparing your authenticator setup…');const r=await fetch(`${API}/api/2fa/setup`,{method:'POST',credentials:'include',headers:headers()});const d=await r.json().catch(()=>({}));if(r.ok){setSecret(d.secret??'');setOtpauth(d.otpauthUrl??'');setMessage('Scan the QR code with Google Authenticator, then enter the six-digit code below.')}else setMessage(d.error??`Unable to start 2FA (${r.status})`)}async function enable(){const r=await fetch(`${API}/api/2fa/enable`,{method:'POST',credentials:'include',headers:headers(),body:JSON.stringify({code})});const d=await r.json().catch(()=>({}));if(r.ok){setProfile({...profile,twoFactorEnabled:true});setSecret('');setOtpauth('');setCode('');setMessage('Two-factor authentication enabled.')}else setMessage(d.error??'Invalid authenticator code')}async function disable(){const r=await fetch(`${API}/api/2fa/disable`,{method:'POST',credentials:'include',headers:headers(),body:JSON.stringify({code})});if(r.ok){setProfile({...profile,twoFactorEnabled:false});setCode('');setMessage('Two-factor authentication disabled.')}else setMessage('Enter a valid authenticator code.')}async function dismiss(){await fetch(`${API}/api/2fa/dismiss-reminder`,{method:'POST',credentials:'include',headers:headers()});setProfile({...profile,twoFactorReminderDismissedAt:new Date().toISOString()})}function logout(){localStorage.removeItem('accessToken');location.href='/'}const reminder=!profile.twoFactorEnabled&&(!profile.twoFactorReminderDismissedAt||Date.now()-new Date(profile.twoFactorReminderDismissedAt).getTime()>28*86400000);return <main className="site-shell"><div className="container"><header className="header"><Link href="/" className="brand">✦ videxpulse.</Link><AccountMenu/></header><section className="section" style={{maxWidth:760,paddingTop:30}}><div className="eyebrow">Your account</div><h1>Profile settings</h1><p className="hero-copy">Manage your identity, contact details, and account security.</p><form onSubmit={save} style={{display:'grid',gap:16,marginTop:28}}>{field('firstName','First name')}{field('lastName','Last name')}{field('phone','Phone number','tel')}<label>Email address<input value={profile.email??''} readOnly style={{width:'100%',padding:10,border:'1px solid var(--line)',borderRadius:10,marginTop:6,background:'#f3f4f5'}}/></label>{field('avatarUrl','Avatar URL','url')}{field('address','Address')}{field('state','State')}{field('country','Country')}{field('postalCode','Pincode / ZIP code')}<button className="button button-primary">Save profile</button></form>{reminder&&!otpauth&&<div style={{padding:18,margin:'24px 0',background:'#fff8e6',border:'1px solid #f0d58c',borderRadius:14}}><b>Protect your account with 2FA</b><p>Use Google Authenticator or another authenticator app for stronger login security.</p><button type="button" className="button button-primary" onClick={setup}>Enable 2FA</button> <button type="button" className="button button-light" onClick={dismiss}>Remind me later</button></div>}{otpauth&&<section style={{padding:22,margin:'24px 0',background:'white',border:'1px solid var(--line)',borderRadius:16,textAlign:'center'}}><h2>Set up your authenticator</h2><p>Open Google Authenticator, choose <b>Scan a QR code</b>, and scan this code.</p><div style={{display:'inline-block',padding:14,border:'1px solid var(--line)',borderRadius:12}}><QRCodeSVG value={otpauth} size={220} includeMargin/></div><p style={{fontSize:'.8rem',color:'var(--muted)'}}>Manual key: <code>{secret}</code></p><input value={code} onChange={e=>setCode(e.target.value)} placeholder="6-digit authenticator code" inputMode="numeric" maxLength={6} style={{padding:11,border:'1px solid var(--line)',borderRadius:10}}/><button type="button" className="button button-primary" onClick={enable} style={{marginLeft:8}}>Verify and enable</button></section>}<section style={{padding:22,marginTop:24,border:'1px solid var(--line)',borderRadius:16,background:'white'}}><h2>Two-factor authentication</h2><p>Status: <b>{profile.twoFactorEnabled?'Enabled':'Disabled'}</b></p>{profile.twoFactorEnabled&&<><input value={code} onChange={e=>setCode(e.target.value)} placeholder="6-digit code to disable" inputMode="numeric" maxLength={6}/><button type="button" className="button button-light" onClick={disable} style={{marginLeft:8}}>Disable 2FA</button></>}</section>{message&&<p style={{color:'var(--brand-dark)'}}>{message}</p>}<div style={{display:'flex',gap:10,marginTop:24}}><button type="button" className="button button-light" onClick={logout}>Log out</button><button type="button" className="button button-light" onClick={async()=>{if(!confirm('Delete your account permanently?'))return;const r=await fetch(`${API}/api/profile`,{method:'DELETE',credentials:'include',headers:headers()});if(r.ok){localStorage.removeItem('accessToken');location.href='/'}}} style={{color:'#b42318'}}>Delete account</button></div></section></div></main>}
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import AccountMenu from "../../components/AccountMenu";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+export default function ProfilePage() {
+  const [profile, setProfile] = useState<any>({}),
+    [message, setMessage] = useState(""),
+    [secret, setSecret] = useState(""),
+    [otpauth, setOtpauth] = useState(""),
+    [code, setCode] = useState("");
+  const token = () => localStorage.getItem("accessToken") ?? "";
+  const headers = () => ({
+    authorization: `Bearer ${token()}`,
+    "content-type": "application/json",
+  });
+  useEffect(() => {
+    if (!token()) {
+      location.href = "/login?next=/profile";
+      return;
+    }
+    fetch(`${API}/api/profile`, { credentials: "include", headers: headers() })
+      .then((r) => r.json())
+      .then((d) => setProfile(d.profile ?? {}));
+  }, []);
+  const field = (n: string, l: string, t = "text") => (
+    <label>
+      {l}
+      <input
+        name={n}
+        type={t}
+        defaultValue={profile[n] ?? ""}
+        style={{
+          width: "100%",
+          padding: 10,
+          border: "1px solid var(--line)",
+          borderRadius: 10,
+          marginTop: 6,
+        }}
+      />
+    </label>
+  );
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const r = await fetch(`${API}/api/profile`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: headers(),
+      body: JSON.stringify(
+        Object.fromEntries(new FormData(e.currentTarget).entries()),
+      ),
+    });
+    setMessage(r.ok ? "Profile updated." : "Unable to update profile.");
+  }
+  async function setup() {
+    setMessage("Preparing your authenticator setup…");
+    const r = await fetch(`${API}/api/2fa/setup`, {
+      method: "POST",
+      credentials: "include",
+      headers: headers(),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setSecret(d.secret ?? "");
+      setOtpauth(d.otpauthUrl ?? "");
+      setMessage(
+        "Scan the QR code with Google Authenticator, then enter the six-digit code below.",
+      );
+    } else setMessage(d.error ?? `Unable to start 2FA (${r.status})`);
+  }
+  async function enable() {
+    const r = await fetch(`${API}/api/2fa/enable`, {
+      method: "POST",
+      credentials: "include",
+      headers: headers(),
+      body: JSON.stringify({ code }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setProfile({ ...profile, twoFactorEnabled: true });
+      setSecret("");
+      setOtpauth("");
+      setCode("");
+      setMessage("Two-factor authentication enabled.");
+    } else setMessage(d.error ?? "Invalid authenticator code");
+  }
+  async function disable() {
+    const r = await fetch(`${API}/api/2fa/disable`, {
+      method: "POST",
+      credentials: "include",
+      headers: headers(),
+      body: JSON.stringify({ code }),
+    });
+    if (r.ok) {
+      setProfile({ ...profile, twoFactorEnabled: false });
+      setCode("");
+      setMessage("Two-factor authentication disabled.");
+    } else setMessage("Enter a valid authenticator code.");
+  }
+  async function dismiss() {
+    await fetch(`${API}/api/2fa/dismiss-reminder`, {
+      method: "POST",
+      credentials: "include",
+      headers: headers(),
+    });
+    setProfile({
+      ...profile,
+      twoFactorReminderDismissedAt: new Date().toISOString(),
+    });
+  }
+  function logout() {
+    localStorage.removeItem("accessToken");
+    location.href = "/";
+  }
+  const reminder =
+    !profile.twoFactorEnabled &&
+    (!profile.twoFactorReminderDismissedAt ||
+      Date.now() - new Date(profile.twoFactorReminderDismissedAt).getTime() >
+        28 * 86400000);
+  return (
+    <main className="site-shell">
+      <div className="container">
+        <header className="header">
+          <Link href="/" className="brand">
+            ✦ videxpulse.
+          </Link>
+          <AccountMenu />
+        </header>
+        <section className="section" style={{ maxWidth: 760, paddingTop: 30 }}>
+          <div className="eyebrow">Your account</div>
+          <h1>Profile settings</h1>
+          <p className="hero-copy">
+            Manage your identity, contact details, and account security.
+          </p>
+          <form
+            onSubmit={save}
+            style={{ display: "grid", gap: 16, marginTop: 28 }}
+          >
+            {field("firstName", "First name")}
+            {field("lastName", "Last name")}
+            {field("phone", "Phone number", "tel")}
+            <label>
+              Email address
+              <input
+                value={profile.email ?? ""}
+                readOnly
+                style={{
+                  width: "100%",
+                  padding: 10,
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  marginTop: 6,
+                  background: "#f3f4f5",
+                }}
+              />
+            </label>
+            {field("avatarUrl", "Avatar URL", "url")}
+            {field("address", "Address")}
+            {field("state", "State")}
+            {field("country", "Country")}
+            {field("postalCode", "Pincode / ZIP code")}
+            <button className="button button-primary">Save profile</button>
+          </form>
+          {reminder && !otpauth && (
+            <div
+              style={{
+                padding: 18,
+                margin: "24px 0",
+                background: "#fff8e6",
+                border: "1px solid #f0d58c",
+                borderRadius: 14,
+              }}
+            >
+              <b>Protect your account with 2FA</b>
+              <p>
+                Use Google Authenticator or another authenticator app for
+                stronger login security.
+              </p>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={setup}
+              >
+                Enable 2FA
+              </button>{" "}
+              <button
+                type="button"
+                className="button button-light"
+                onClick={dismiss}
+              >
+                Remind me later
+              </button>
+            </div>
+          )}
+          {otpauth && (
+            <section
+              style={{
+                padding: 22,
+                margin: "24px 0",
+                background: "white",
+                border: "1px solid var(--line)",
+                borderRadius: 16,
+                textAlign: "center",
+              }}
+            >
+              <h2>Set up your authenticator</h2>
+              <p>
+                Open Google Authenticator, choose <b>Scan a QR code</b>, and
+                scan this code.
+              </p>
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: 14,
+                  border: "1px solid var(--line)",
+                  borderRadius: 12,
+                }}
+              >
+                <QRCodeSVG value={otpauth} size={220} includeMargin />
+              </div>
+              <p style={{ fontSize: ".8rem", color: "var(--muted)" }}>
+                Manual key: <code>{secret}</code>
+              </p>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="6-digit authenticator code"
+                inputMode="numeric"
+                maxLength={6}
+                style={{
+                  padding: 11,
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                }}
+              />
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={enable}
+                style={{ marginLeft: 8 }}
+              >
+                Verify and enable
+              </button>
+            </section>
+          )}
+          <section
+            style={{
+              padding: 22,
+              marginTop: 24,
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              background: "white",
+            }}
+          >
+            <h2>Two-factor authentication</h2>
+            <p>
+              Status: <b>{profile.twoFactorEnabled ? "Enabled" : "Disabled"}</b>
+            </p>
+            {profile.twoFactorEnabled && (
+              <>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="6-digit code to disable"
+                  inputMode="numeric"
+                  maxLength={6}
+                />
+                <button
+                  type="button"
+                  className="button button-light"
+                  onClick={disable}
+                  style={{ marginLeft: 8 }}
+                >
+                  Disable 2FA
+                </button>
+              </>
+            )}
+          </section>
+          {message && <p style={{ color: "var(--brand-dark)" }}>{message}</p>}
+          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <button
+              type="button"
+              className="button button-light"
+              onClick={logout}
+            >
+              Log out
+            </button>
+            <button
+              type="button"
+              className="button button-light"
+              onClick={async () => {
+                if (!confirm("Delete your account permanently?")) return;
+                const r = await fetch(`${API}/api/profile`, {
+                  method: "DELETE",
+                  credentials: "include",
+                  headers: headers(),
+                });
+                if (r.ok) {
+                  localStorage.removeItem("accessToken");
+                  location.href = "/";
+                }
+              }}
+              style={{ color: "#b42318" }}
+            >
+              Delete account
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

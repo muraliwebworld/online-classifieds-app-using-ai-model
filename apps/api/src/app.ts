@@ -28,6 +28,18 @@ app.use(helmet());
 app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+const MAX_JSON_DEPTH = 20;
+function exceedsJsonDepth(value: unknown, depth = 0, seen = new WeakSet<object>()): boolean {
+  if (depth > MAX_JSON_DEPTH || value === null || typeof value !== 'object') return depth > MAX_JSON_DEPTH;
+  if (seen.has(value)) return true;
+  seen.add(value);
+  const values = Array.isArray(value) ? value : Object.values(value as Record<string, unknown>);
+  return values.some((child) => exceedsJsonDepth(child, depth + 1, seen));
+}
+app.use((req, res, next) => {
+  if (req.body && exceedsJsonDepth(req.body)) return res.status(400).json({ error: 'Request JSON is too deeply nested' });
+  return next();
+});
 app.use('/api', csrfProtection);
 app.use((pinoHttp as unknown as () => express.RequestHandler)());
 app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR ?? '/app/uploads')));

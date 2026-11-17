@@ -11,6 +11,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { getAuth } from 'firebase-admin/auth';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { valid } from '../lib/totp.js';
+import { isSmtpConfigured, sendPasswordResetEmail } from '../lib/mailer.js';
 
 export const authRouter = Router();
 function firebaseAuth(){ if(!env.FIREBASE_PROJECT_ID||!env.FIREBASE_CLIENT_EMAIL||!env.FIREBASE_PRIVATE_KEY) throw new Error('Firebase is not configured'); const app=getApps()[0]??initializeApp({credential:cert({projectId:env.FIREBASE_PROJECT_ID,clientEmail:env.FIREBASE_CLIENT_EMAIL,privateKey:env.FIREBASE_PRIVATE_KEY.replace(/\\n/g,'\n')})}); return getAuth(app); }
@@ -102,6 +103,14 @@ authRouter.post('/forgot-password', verifyRecaptcha, async (req, res, next) => {
       { subject: user.id, expiresIn: '15m' }
     );
     const resetUrl = `${env.FRONTEND_ORIGIN.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+    if (isSmtpConfigured()) {
+      await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetUrl
+      }).catch((err) => console.error('Password reset email failed:', err));
+    }
 
     if (env.PASSWORD_RESET_WEBHOOK_URL) {
       await fetch(env.PASSWORD_RESET_WEBHOOK_URL, {

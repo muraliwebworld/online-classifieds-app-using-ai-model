@@ -94,6 +94,12 @@ authRouter.post('/forgot-password', verifyRecaptcha, async (req, res, next) => {
   try {
     const input = forgotPasswordSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: input.email } });
+    console.info('[forgot-password] request', {
+      email: input.email,
+      userFound: Boolean(user),
+      smtpConfigured: isSmtpConfigured(),
+      hasWebhook: Boolean(env.PASSWORD_RESET_WEBHOOK_URL),
+    });
     const message = 'If an account with that email exists, a password reset link has been sent.';
     if (!user) return res.json({ message });
 
@@ -104,16 +110,26 @@ authRouter.post('/forgot-password', verifyRecaptcha, async (req, res, next) => {
     );
     const resetUrl = `${env.FRONTEND_ORIGIN.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
 
+    if (!isSmtpConfigured() && !env.PASSWORD_RESET_WEBHOOK_URL && env.NODE_ENV === 'production') {
+      console.error('[forgot-password] neither SMTP nor PASSWORD_RESET_WEBHOOK_URL is configured');
+      return res.status(503).json({ error: 'Password reset email service is not configured.' });
+    }
+
     if (isSmtpConfigured()) {
-      await sendPasswordResetEmail({
-        to: user.email,
-        name: user.name,
-        resetUrl
-      }).catch((err) => console.error('Password reset email failed:', err));
+      try {
+        await sendPasswordResetEmail({
+          to: user.email,
+          name: user.name,
+          resetUrl
+        });
+      } catch (err) {
+        console.error('[forgot-password] SMTP send failed:', err);
+        return res.status(502).json({ error: 'Failed to send password reset email. Please try again later.' });
+      }
     }
 
     if (env.PASSWORD_RESET_WEBHOOK_URL) {
-      await fetch(env.PASSWORD_RESET_WEBHOOK_URL, {
+      const webhookRes = await fetch(env.PASSWORD_RESET_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -125,7 +141,13 @@ authRouter.post('/forgot-password', verifyRecaptcha, async (req, res, next) => {
           resetUrl,
           expiresInMinutes: 15
         })
-      }).catch((err) => console.error('Password reset webhook failed:', err));
+      }).catch((err) => {
+        console.error('[forgot-password] webhook failed:', err);
+        return null;
+      });
+      if (!webhookRes || !webhookRes.ok) {
+        return res.status(502).json({ error: 'Failed to send password reset email. Please try again later.' });
+      }
     }
 
     if (env.NODE_ENV !== 'production') {

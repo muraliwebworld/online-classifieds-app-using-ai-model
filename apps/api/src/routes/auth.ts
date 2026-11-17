@@ -30,6 +30,19 @@ const loginSchema = z.object({
   password: z.string().min(1)
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.email().transform((value) => value.toLowerCase())
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(20),
+  password: z.string().min(8).max(128)
+});
+
+function passwordResetSecret(passwordHash: string) {
+  return `${env.JWT_SECRET}:${passwordHash}`;
+}
+
 function signToken(user: { id: string; role: 'USER' | 'MODERATOR' | 'ADMIN'; subscriptionTier: string }) {
   return jwt.sign({ role: user.role, subscriptionTier: user.subscriptionTier }, env.JWT_SECRET, {
     subject: user.id,
@@ -75,3 +88,75 @@ authRouter.post('/login', verifyRecaptcha, async (req, res, next) => {
 });
 authRouter.post('/2fa/verify', async (req,res,next)=>{try{const input=z.object({challengeToken:z.string().min(20),code:z.string().regex(/^\d{6}$/)}).parse(req.body);const payload=jwt.verify(input.challengeToken,env.JWT_SECRET) as {sub:string;purpose:string};if(payload.purpose!=='2fa')return res.status(401).json({error:'Invalid 2FA challenge'});const user=await prisma.user.findUnique({where:{id:payload.sub}});if(!user?.twoFactorEnabled||!user.twoFactorSecret||!valid(user.twoFactorSecret,input.code))return res.status(401).json({error:'Invalid authenticator code'});return completeLogin(res,user)}catch(error){return next(error)}});
 authRouter.post('/firebase', verifyRecaptcha, async (req,res,next)=>{try{const input=z.object({idToken:z.string().min(20)}).parse(req.body);const decoded=await firebaseAuth().verifyIdToken(input.idToken);if(!decoded.email)return res.status(400).json({error:'Firebase account has no email'});let user=await prisma.user.findFirst({where:{OR:[{firebaseUid:decoded.uid},{email:decoded.email.toLowerCase()}]}});if(!user){const setting=await prisma.themeSetting.findUnique({where:{key:'registration_enabled'}});if(setting?.value===false)return res.status(403).json({error:'Registration is currently disabled'});user=await prisma.user.create({data:{name:decoded.name??decoded.email.split('@')[0],firstName:decoded.name??null,email:decoded.email.toLowerCase(),passwordHash:bcrypt.hashSync(Math.random().toString(36)+Date.now(),12),firebaseUid:decoded.uid}})}else if(!user.firebaseUid)user=await prisma.user.update({where:{id:user.id},data:{firebaseUid:decoded.uid}});if(user.twoFactorEnabled)return res.json({twoFactorRequired:true,challengeToken:signChallenge(user.id)});return completeLogin(res,user)}catch(error){return next(error)}});
+
+authRouter.post('/forgot-password', verifyRecaptcha, async (req, res, next) => {
+  try {
+    const input = forgotPasswordSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email: input.email } });
+    const message = 'If an account with that email exists, a password reset link has been sent.';
+    if (!user) return res.json({ message });
+
+    const token = jwt.sign(
+      { purpose: 'password-reset' },
+      passwordResetSecret(user.passwordHash),
+      { subject: user.id, expiresIn: '15m' }
+    );
+    const resetUrl = `${env.FRONTEND_ORIGIN.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+    if (env.PASSWORD_RESET_WEBHOOK_URL) {
+      await fetch(env.PASSWORD_RESET_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(env.N8N_WEBHOOK_SECRET ? { 'x-webhook-secret': env.N8N_WEBHOOK_SECRET } : {})
+        },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.name,
+          resetUrl,
+          expiresInMinutes: 15
+        })
+      }).catch((err) => console.error('Password reset webhook failed:', err));
+    }
+
+    if (env.NODE_ENV !== 'production') {
+      return res.json({ message, devResetUrl: resetUrl });
+    }
+    return res.json({ message });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+authRouter.post('/reset-password', async (req, res, next) => {
+  try {
+    const input = resetPasswordSchema.parse(req.body);
+    const unverified = jwt.decode(input.token) as { sub?: string; purpose?: string } | null;
+    if (!unverified?.sub || unverified.purpose !== 'password-reset') {
+      return res.status(400).json({ error: 'Invalid or expired password reset token' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: unverified.sub } });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired password reset token' });
+    }
+
+    try {
+      const verified = jwt.verify(input.token, passwordResetSecret(user.passwordHash)) as {
+        sub?: string;
+        purpose?: string;
+      };
+      if (verified.purpose !== 'password-reset' || verified.sub !== user.id) {
+        return res.status(400).json({ error: 'Invalid or expired password reset token' });
+      }
+    } catch {
+      return res.status(400).json({ error: 'Invalid or expired password reset token' });
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, 12);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    return res.json({ message: 'Password updated successfully. You can now sign in.' });
+  } catch (error) {
+    return next(error);
+  }
+});

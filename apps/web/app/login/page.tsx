@@ -12,8 +12,9 @@ declare global {
   }
 }
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "register">("login"),
+  const [mode, setMode] = useState<"login" | "register" | "forgot">("login"),
     [message, setMessage] = useState(""),
+    [devResetUrl, setDevResetUrl] = useState(""),
     [challenge, setChallenge] = useState("");
   async function verify(code: string) {
     const r = await fetch(`${API}/api/auth/2fa/verify`, {
@@ -31,6 +32,7 @@ export default function LoginPage() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage("");
+    setDevResetUrl("");
     const f = new FormData(e.currentTarget),
       key = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
     let recaptchaToken: string | undefined;
@@ -47,6 +49,25 @@ export default function LoginPage() {
             .catch(reject),
         ),
       );
+    }
+    if (mode === "forgot") {
+      const r = await fetch(`${API}/api/auth/forgot-password`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: f.get("email"), recaptchaToken }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setMessage(
+          d.message ??
+            "If an account with that email exists, a password reset link has been sent.",
+        );
+        if (d.devResetUrl) setDevResetUrl(d.devResetUrl);
+      } else {
+        setMessage(d.error ?? "Unable to request password reset");
+      }
+      return;
     }
     const endpoint =
       mode === "login" ? "/api/auth/login" : "/api/auth/register";
@@ -117,57 +138,135 @@ export default function LoginPage() {
           ) : (
             <>
               <div className="eyebrow">Your marketplace account</div>
-              <h1>{mode === "login" ? "Sign in" : "Create account"}</h1>
+              <h1>
+                {mode === "login"
+                  ? "Sign in"
+                  : mode === "register"
+                    ? "Create account"
+                    : "Reset password"}
+              </h1>
               <div style={{ display: "flex", gap: 8, margin: "22px 0" }}>
                 <button
                   type="button"
                   className={`button ${mode === "login" ? "button-primary" : "button-light"}`}
-                  onClick={() => setMode("login")}
+                  onClick={() => {
+                    setMode("login");
+                    setMessage("");
+                    setDevResetUrl("");
+                  }}
                 >
                   Sign in
                 </button>
                 <button
                   type="button"
                   className={`button ${mode === "register" ? "button-primary" : "button-light"}`}
-                  onClick={() => setMode("register")}
+                  onClick={() => {
+                    setMode("register");
+                    setMessage("");
+                    setDevResetUrl("");
+                  }}
                 >
                   Sign up
                 </button>
               </div>
-              <GoogleLoginButton
-                onError={setMessage}
-                onChallenge={setChallenge}
-              />
-              <p>or continue with email</p>
-              <form onSubmit={submit} style={{ display: "grid", gap: 15 }}>
-                {mode === "register" && (
-                  <input
-                    className="search-input"
-                    name="name"
-                    required
-                    placeholder="Full name"
+              {mode === "forgot" ? (
+                <>
+                  <p>
+                    Enter your account email address and we will send you a link
+                    to reset your password.
+                  </p>
+                  <form onSubmit={submit} style={{ display: "grid", gap: 15 }}>
+                    <input
+                      className="search-input"
+                      name="email"
+                      type="email"
+                      required
+                      placeholder="Email address"
+                    />
+                    <button className="button button-primary">
+                      Send reset link
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-light"
+                      onClick={() => {
+                        setMode("login");
+                        setMessage("");
+                        setDevResetUrl("");
+                      }}
+                    >
+                      Back to sign in
+                    </button>
+                    {message && <p>{message}</p>}
+                    {devResetUrl && (
+                      <p>
+                        Dev reset link:{" "}
+                        <Link href={devResetUrl} className="text-link">
+                          Reset password now
+                        </Link>
+                      </p>
+                    )}
+                  </form>
+                </>
+              ) : (
+                <>
+                  <GoogleLoginButton
+                    onError={setMessage}
+                    onChallenge={setChallenge}
                   />
-                )}
-                <input
-                  className="search-input"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="Email address"
-                />
-                <input
-                  className="search-input"
-                  name="password"
-                  type="password"
-                  minLength={8}
-                  required
-                  placeholder="Password"
-                />
-                <button className="button button-primary">
-                  {mode === "login" ? "Sign in" : "Create account"}
-                </button>
-                {message && <p>{message}</p>}
-              </form>
+                  <p>or continue with email</p>
+                  <form onSubmit={submit} style={{ display: "grid", gap: 15 }}>
+                    {mode === "register" && (
+                      <input
+                        className="search-input"
+                        name="name"
+                        required
+                        placeholder="Full name"
+                      />
+                    )}
+                    <input
+                      className="search-input"
+                      name="email"
+                      type="email"
+                      required
+                      placeholder="Email address"
+                    />
+                    <input
+                      className="search-input"
+                      name="password"
+                      type="password"
+                      minLength={8}
+                      required
+                      placeholder="Password"
+                    />
+                    {mode === "login" && (
+                      <div style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="text-link"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            setMode("forgot");
+                            setMessage("");
+                            setDevResetUrl("");
+                          }}
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    )}
+                    <button className="button button-primary">
+                      {mode === "login" ? "Sign in" : "Create account"}
+                    </button>
+                    {message && <p>{message}</p>}
+                  </form>
+                </>
+              )}
             </>
           )}
         </section>

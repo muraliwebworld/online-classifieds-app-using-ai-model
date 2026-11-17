@@ -12,6 +12,7 @@ const envSchema = z.object({
   COOKIE_DOMAIN: z.string().optional(),
   N8N_LISTING_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
+  PASSWORD_RESET_WEBHOOK_URL: z.string().url().optional(),
   INTERNAL_API_URL: z.string().url().optional(),
   QDRANT_URL: z.string().url().default('http://classifieds-qdrant:6333'),
   QDRANT_API_KEY: z.string().optional(),

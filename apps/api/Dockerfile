@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -18,12 +18,14 @@ COPY src ./src
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:22-bookworm-slim AS production
+FROM node:26-bookworm-slim AS production
 
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV UPLOAD_DIR=/app/uploads
 ENV NODE_OPTIONS=--disable-proto=throw
+ENV CLAMAV_HOST=clamav
+ENV CLAMAV_PORT=3310
 
 WORKDIR /app
 

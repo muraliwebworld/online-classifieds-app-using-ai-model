@@ -18,7 +18,11 @@ async function embed(input: string) {
   const response = await fetch(`${env.AI_BASE_URL}/embeddings`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.AI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: env.AI_EMBEDDING_MODEL, dimensions: 1536, input })
+    body: JSON.stringify({
+      model: env.AI_EMBEDDING_MODEL,
+      ...(env.AI_EMBEDDING_DIMENSIONS ? { dimensions: env.AI_EMBEDDING_DIMENSIONS } : {}),
+      input
+    })
   });
   if (!response.ok) throw new Error(`Embedding provider returned ${response.status}`);
   const data = await response.json() as { data?: { embedding?: number[] }[] };

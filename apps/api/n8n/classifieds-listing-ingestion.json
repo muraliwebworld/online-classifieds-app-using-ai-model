@@ -35,7 +35,7 @@
       "position": [-160, 0]
     },
     {
-      "parameters": { "method": "POST", "url": "={{($env.AI_BASE_URL || 'https://openrouter.ai/api/v1') + '/embeddings'}}", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.AI_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }, { "name": "HTTP-Referer", "value": "https://classifieds.videxpulse.com" }, { "name": "X-Title", "value": "VidexPulse Classifieds" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: $env.AI_EMBEDDING_MODEL || 'openai/text-embedding-3-small', dimensions: 1536, input: $json.embeddingText } }}", "options": {} },
+      "parameters": { "method": "POST", "url": "={{($env.AI_BASE_URL || 'https://openrouter.ai/api/v1') + '/embeddings'}}", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.AI_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }, { "name": "HTTP-Referer", "value": "https://classifieds.videxpulse.com" }, { "name": "X-Title", "value": "VidexPulse Classifieds" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { model: $env.AI_EMBEDDING_MODEL || 'openai/text-embedding-3-small', ...($env.AI_EMBEDDING_DIMENSIONS ? { dimensions: Number($env.AI_EMBEDDING_DIMENSIONS) } : {}), input: $json.embeddingText } }}", "options": {} },
       "id": "create-embedding",
       "name": "Create embedding",
       "type": "n8n-nodes-base.httpRequest",

@@ -25,6 +25,7 @@ const envSchema = z.object({
   AI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
   AI_API_KEY: z.string().min(1).optional(),
   AI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+  AI_EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().optional(),
   RECAPTCHA_SECRET_KEY: z.string().optional(),
   RECAPTCHA_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5)
   ,FIREBASE_PROJECT_ID: z.string().optional()

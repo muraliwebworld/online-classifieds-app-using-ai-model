@@ -94,12 +94,6 @@ authRouter.post('/forgot-password', verifyRecaptcha, async (req, res, next) => {
   try {
     const input = forgotPasswordSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: input.email } });
-    console.info('[forgot-password] request', {
-      email: input.email,
-      userFound: Boolean(user),
-      smtpConfigured: isSmtpConfigured(),
-      hasWebhook: Boolean(env.PASSWORD_RESET_WEBHOOK_URL),
-    });
     const message = 'If an account with that email exists, a password reset link has been sent.';
     if (!user) return res.json({ message });
 

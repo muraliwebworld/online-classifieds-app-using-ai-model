@@ -2,6 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing } from "../../../lib/api";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+
+function resolveImageUrl(url?: string) {
+  if (!url) return undefined;
+  return url.startsWith("/") ? `${API_URL}${url}` : url;
+}
+
 export default async function ListingPage({
   params,
 }: {
@@ -9,6 +16,7 @@ export default async function ListingPage({
 }) {
   const listing = await getListing((await params).id);
   if (!listing) notFound();
+  const primaryImage = resolveImageUrl(listing.images?.[0]?.url);
   return (
     <main className="site-shell">
       <div className="container">
@@ -27,15 +35,41 @@ export default async function ListingPage({
             style={{
               height: 390,
               borderRadius: 18,
-              backgroundImage: listing.images?.[0]?.url
-                ? `url(${listing.images[0].url})`
-                : undefined,
+              backgroundImage: primaryImage ? `url(${primaryImage})` : undefined,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
           >
-            {!listing.images?.[0]?.url && <span>✦</span>}
+            {!primaryImage && <span>✦</span>}
           </div>
+          {listing.images && listing.images.length > 1 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
+                gap: 10,
+                marginTop: 12,
+              }}
+            >
+              {listing.images.slice(1).map((img) => {
+                const src = resolveImageUrl(img.url);
+                return (
+                  <img
+                    key={img.url}
+                    src={src}
+                    alt={listing.title}
+                    style={{
+                      width: "100%",
+                      height: 90,
+                      objectFit: "cover",
+                      borderRadius: 10,
+                      border: "1px solid var(--line)",
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
           <div style={{ padding: "28px 0" }}>
             <div className="eyebrow">
               {listing.category?.name ?? "Classified listing"}

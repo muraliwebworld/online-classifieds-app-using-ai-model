@@ -4,6 +4,12 @@ import Link from "next/link";
 import type { Listing } from "../lib/api";
 
 const tones = ["orange", "blue", "green", ""];
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+
+function resolveImageUrl(url?: string) {
+  if (!url) return undefined;
+  return url.startsWith("/") ? `${API_URL}${url}` : url;
+}
 
 export default function ListingCard({
   listing,
@@ -12,7 +18,7 @@ export default function ListingCard({
   listing: Listing;
   index?: number;
 }) {
-  const image = listing.images?.[0]?.url;
+  const image = resolveImageUrl(listing.images?.[0]?.url);
   const price = Number(listing.price).toLocaleString("en-IN");
   return (
     <Link className="listing-card" href={`/listing/${listing.id}`}>

@@ -14,7 +14,15 @@ const createListingSchema = z.object({
   currency: z.string().trim().length(3).default('INR'),
   categoryId: z.uuid(),
   locationId: z.uuid(),
-  imageUrls: z.array(z.url()).max(12).default([])
+  imageUrls: z
+    .array(
+      z.string().refine(
+        (val) => val.startsWith('/uploads/') || z.url().safeParse(val).success,
+        'Invalid image URL'
+      )
+    )
+    .max(12)
+    .default([])
 });
 
 listingsRouter.post('/', requireAuth, verifyRecaptcha, async (req, res, next) => {

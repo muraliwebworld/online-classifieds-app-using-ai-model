@@ -21,6 +21,24 @@ export async function searchListings(query: string): Promise<Listing[]> {
   return data.listings ?? [];
 }
 
+export type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  publishedCount?: number;
+};
+
+export async function getCategories(): Promise<Category[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/catalog/categories`, { cache: 'no-store' });
+    if (!response.ok) return [];
+    const data = await response.json() as { categories?: Category[] };
+    return data.categories ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getListing(id: string): Promise<Listing | null> {
   const response = await fetch(`${API_URL}/api/listings/${encodeURIComponent(id)}`, { next: { revalidate: 30 } });
   if (!response.ok) return null;

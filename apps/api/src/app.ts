@@ -41,7 +41,14 @@ app.use((req, res, next) => {
   return next();
 });
 app.use('/api', csrfProtection);
-app.use((pinoHttp as unknown as () => express.RequestHandler)());
+app.use(
+  (pinoHttp as unknown as (opts?: Record<string, unknown>) => express.RequestHandler)({
+    level: env.NODE_ENV === 'production' ? 'warn' : 'info',
+    autoLogging: {
+      ignore: (req: express.Request) => req.url === '/health',
+    },
+  })
+);
 app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR ?? '/app/uploads')));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 

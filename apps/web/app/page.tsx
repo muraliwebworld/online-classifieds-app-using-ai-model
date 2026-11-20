@@ -1,12 +1,14 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import CategoryNav from '../components/CategoryNav';
 import ListingCard from '../components/ListingCard';
 import SearchBox from '../components/SearchBox';
 import AccountMenu from '../components/AccountMenu';
-import { searchListings } from '../lib/api';
+import { getRecentListings } from '../lib/api';
 
 export default async function HomePage() {
-  const listings = await searchListings('');
+  const preferredLocationId = (await cookies()).get('preferred_location_id')?.value;
+  const listings = await getRecentListings(preferredLocationId, 8);
 
   return (
     <main className="site-shell">

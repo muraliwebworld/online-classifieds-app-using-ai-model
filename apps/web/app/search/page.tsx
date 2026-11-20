@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import ListingCard from "../../components/ListingCard";
 import SearchBox from "../../components/SearchBox";
+import LocationSelector from "../../components/LocationSelector";
 import { searchListings } from "../../lib/api";
 
 export default async function SearchPage({
@@ -9,7 +11,8 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const query = (await searchParams).q ?? "";
-  const listings = await searchListings(query);
+  const preferredLocationId = (await cookies()).get("preferred_location_id")?.value;
+  const listings = await searchListings(query, preferredLocationId);
   return (
     <main className="site-shell">
       <div className="container">
@@ -19,6 +22,7 @@ export default async function SearchPage({
             <span style={{ color: "var(--brand)" }}>.</span>
           </Link>
           <nav className="nav">
+            <LocationSelector />
             <Link href="/">Home</Link>
             <Link href="/post" className="button button-primary">
               Post an ad ＋

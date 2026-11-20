@@ -13,9 +13,24 @@ export type Listing = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
-export async function searchListings(query: string): Promise<Listing[]> {
-  if (!query.trim()) return [];
-  const response = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(query)}`, { cache: 'no-store' });
+export async function getRecentListings(preferredLocationId?: string, limit = 8): Promise<Listing[]> {
+  try {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (preferredLocationId) params.set('locationId', preferredLocationId);
+    const response = await fetch(`${API_URL}/api/listings?${params.toString()}`, { cache: 'no-store' });
+    if (!response.ok) return [];
+    const data = await response.json() as { listings?: Listing[] };
+    return data.listings ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function searchListings(query: string, preferredLocationId?: string): Promise<Listing[]> {
+  if (!query.trim()) return getRecentListings(preferredLocationId, 24);
+  const params = new URLSearchParams({ q: query });
+  if (preferredLocationId) params.set('preferredLocationId', preferredLocationId);
+  const response = await fetch(`${API_URL}/api/search?${params.toString()}`, { cache: 'no-store' });
   if (!response.ok) return [];
   const data = await response.json() as { listings?: Listing[] };
   return data.listings ?? [];

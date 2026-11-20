@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import LocationSelector from "./LocationSelector";
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 export default function AccountMenu() {
   const [user, setUser] = useState<any>(null);
@@ -26,6 +27,7 @@ export default function AccountMenu() {
   if (!user)
     return (
       <nav className="nav">
+        <LocationSelector />
         <Link href="/search">Browse ads</Link>
         <Link href="/login">Sign in</Link>
         <Link href="/login?mode=register" className="button button-light">
@@ -41,6 +43,7 @@ export default function AccountMenu() {
     .toUpperCase();
   return (
     <nav className="nav" style={{ alignItems: "center" }}>
+      <LocationSelector />
       <Link href="/search">Browse ads</Link>
       <Link href="/post" className="button button-primary">
         Post an ad&nbsp; ＋

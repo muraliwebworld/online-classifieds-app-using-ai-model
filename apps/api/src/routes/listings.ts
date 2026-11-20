@@ -7,6 +7,35 @@ import { env } from '../config.js';
 
 export const listingsRouter = Router();
 
+listingsRouter.get('/', async (req, res, next) => {
+  try {
+    const query = z
+      .object({
+        locationId: z.uuid().optional(),
+        limit: z.coerce.number().int().min(1).max(40).default(12)
+      })
+      .parse(req.query);
+
+    const listings = await prisma.listing.findMany({
+      where: { status: 'PUBLISHED' },
+      take: query.locationId ? Math.min(query.limit * 3, 60) : query.limit,
+      orderBy: { publishedAt: 'desc' },
+      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true }
+    });
+
+    const sorted = query.locationId
+      ? [
+          ...listings.filter((item) => item.locationId === query.locationId),
+          ...listings.filter((item) => item.locationId !== query.locationId)
+        ].slice(0, query.limit)
+      : listings;
+
+    return res.json({ listings: sorted });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 const createListingSchema = z.object({
   title: z.string().trim().min(5).max(160),
   description: z.string().trim().min(20).max(10000),

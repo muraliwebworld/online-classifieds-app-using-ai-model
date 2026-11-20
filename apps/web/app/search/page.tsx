@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import ListingCard from "../../components/ListingCard";
 import SearchBox from "../../components/SearchBox";
 import LocationSelector from "../../components/LocationSelector";
+import BrandLogo from "../../components/BrandLogo";
+import CategoryStrip from "../../components/CategoryStrip";
 import { searchListings } from "../../lib/api";
 
 export default async function SearchPage({
@@ -17,10 +19,7 @@ export default async function SearchPage({
     <main className="site-shell">
       <div className="container">
         <header className="header">
-          <Link href="/" className="brand">
-            <span className="brand-mark">✦</span>videxpulse
-            <span style={{ color: "var(--brand)" }}>.</span>
-          </Link>
+          <BrandLogo />
           <nav className="nav">
             <LocationSelector />
             <Link href="/">Home</Link>
@@ -29,6 +28,7 @@ export default async function SearchPage({
             </Link>
           </nav>
         </header>
+        <CategoryStrip activeCategory={query} />
         <section className="section" style={{ paddingTop: 38 }}>
           <div className="section-heading">
             <div>

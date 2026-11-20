@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import GoogleLoginButton from "../../components/GoogleLoginButton";
+import BrandLogo from "../../components/BrandLogo";
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 declare global {
   interface Window {
@@ -100,9 +101,7 @@ export default function LoginPage() {
     <main className="site-shell">
       <div className="container">
         <header className="header">
-          <Link href="/" className="brand">
-            ✦ videxpulse.
-          </Link>
+          <BrandLogo />
         </header>
         <section
           className="section"

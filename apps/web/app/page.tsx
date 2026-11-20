@@ -4,6 +4,7 @@ import CategoryNav from '../components/CategoryNav';
 import ListingCard from '../components/ListingCard';
 import SearchBox from '../components/SearchBox';
 import AccountMenu from '../components/AccountMenu';
+import BrandLogo from '../components/BrandLogo';
 import { getRecentListings } from '../lib/api';
 
 export default async function HomePage() {
@@ -14,7 +15,7 @@ export default async function HomePage() {
     <main className="site-shell">
       <div className="container">
         <header className="header">
-          <Link href="/" className="brand"><span className="brand-mark">✦</span>videxpulse<span style={{ color: 'var(--brand)' }}>.</span></Link>
+          <BrandLogo />
           <AccountMenu />
         </header>
         <section className="hero">

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing } from "../../../lib/api";
+import BrandLogo from "../../../components/BrandLogo";
+import CategoryStrip from "../../../components/CategoryStrip";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
@@ -21,14 +23,12 @@ export default async function ListingPage({
     <main className="site-shell">
       <div className="container">
         <header className="header">
-          <Link href="/" className="brand">
-            <span className="brand-mark">✦</span>videxpulse
-            <span style={{ color: "var(--brand)" }}>.</span>
-          </Link>
+          <BrandLogo />
           <Link href="/search" className="text-link">
             ← Back to search
           </Link>
         </header>
+        <CategoryStrip activeCategory={listing.category?.name} />
         <section className="section" style={{ paddingTop: 30, maxWidth: 900 }}>
           <div
             className="listing-image orange"

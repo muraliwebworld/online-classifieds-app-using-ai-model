@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AccountMenu from "../../components/AccountMenu";
+import BrandLogo from "../../components/BrandLogo";
+import ConfirmDialog from "../../components/ConfirmDialog";
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 type Tab = "users" | "listings" | "categories" | "plans" | "general" | "theme";
 const Switch = ({ on, onChange }: { on: boolean; onChange: () => void }) => (
@@ -40,7 +42,14 @@ export default function AdminPage() {
     [editing, setEditing] = useState<string | null>(null),
     [form, setForm] = useState<any>({}),
     [settings, setSettings] = useState<any>({}),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [uploadingLogo, setUploadingLogo] = useState(false),
+    [confirmState, setConfirmState] = useState<{
+      type: "delete-listing" | "update-listing";
+      id: string;
+      label: string;
+    } | null>(null),
+    [confirmBusy, setConfirmBusy] = useState(false);
   const auth = () => ({
     authorization: `Bearer ${localStorage.getItem("accessToken") ?? ""}`,
   });
@@ -118,8 +127,7 @@ export default function AdminPage() {
           : {},
     );
   }
-  async function save(e: any) {
-    e.preventDefault();
+  async function persistSave() {
     let endpoint = `${API}/api/admin/${tab}${editing === "new" ? "" : `/${editing}`}`,
       body: any = { ...form };
     if (tab === "plans")
@@ -165,6 +173,42 @@ export default function AdminPage() {
     }
     close();
     load();
+  }
+  async function save(e: any) {
+    e.preventDefault();
+    if (tab === "listings" && editing && editing !== "new") {
+      setConfirmState({
+        type: "update-listing",
+        id: editing,
+        label: form.title ?? "this listing",
+      });
+      return;
+    }
+    await persistSave();
+  }
+  async function handleConfirm() {
+    if (!confirmState) return;
+    setConfirmBusy(true);
+    try {
+      if (confirmState.type === "delete-listing") {
+        const r = await fetch(`${API}/api/admin/listings/${confirmState.id}`, {
+          method: "DELETE",
+          headers: auth(),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          setError(d.error ?? "Delete failed");
+          return;
+        }
+        if (editing === confirmState.id) close();
+        load();
+      } else {
+        await persistSave();
+      }
+    } finally {
+      setConfirmBusy(false);
+      setConfirmState(null);
+    }
   }
   const formFields = () => (
     <form
@@ -250,7 +294,39 @@ export default function AdminPage() {
       body: JSON.stringify({ value }),
     });
     setSettings((s: any) => ({ ...s, [key]: value }));
+    if (key === "logo_url" && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("theme-updated"));
+    }
   };
+  async function uploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingLogo(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("images", file);
+      const r = await fetch(`${API}/api/uploads`, {
+        method: "POST",
+        credentials: "include",
+        headers: auth(),
+        body: fd,
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(d.error ?? "Unable to upload logo");
+        return;
+      }
+      const rawUrl = d.files?.[0]?.url;
+      if (rawUrl) {
+        const fullUrl = rawUrl.startsWith("http") ? rawUrl : `${API}${rawUrl}`;
+        await setting("logo_url", fullUrl);
+      }
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
   const themeField = (key: string, label: string, type = "text") => (
     <label style={{ display: "grid", gap: 6 }}>
       {label}
@@ -298,9 +374,7 @@ export default function AdminPage() {
     <main className="site-shell">
       <div className="container">
         <header className="header">
-          <Link href="/" className="brand">
-            ✦ videxpulse.
-          </Link>
+          <BrandLogo />
           <AccountMenu />
         </header>
         <section className="section">
@@ -369,6 +443,40 @@ export default function AdminPage() {
                 }}
               >
                 {themeField("logo_url", "Header logo URL", "url")}
+                <div style={{ display: "grid", gap: 6 }}>
+                  <span>Upload header logo</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    disabled={uploadingLogo}
+                    onChange={uploadLogo}
+                    style={{
+                      padding: 8,
+                      border: "1px solid var(--line)",
+                      borderRadius: 10,
+                    }}
+                  />
+                  {settings.logo_url && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <img
+                        src={
+                          String(settings.logo_url).startsWith("/")
+                            ? `${API}${settings.logo_url}`
+                            : String(settings.logo_url)
+                        }
+                        alt="Current logo"
+                        style={{ height: 32, width: "auto", objectFit: "contain" }}
+                      />
+                      <button
+                        type="button"
+                        className="button button-light"
+                        onClick={() => setting("logo_url", "")}
+                      >
+                        Remove logo
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {themeField("header_color", "Header color", "color")}
                 {themeField(
                   "site_background_color",
@@ -450,15 +558,33 @@ export default function AdminPage() {
                           ? `₹${row.price} / ${row.interval} · ${row.active ? "Active" : "Inactive"}`
                           : row.email || row.description}
                       </span>
-                      <button
-                        type="button"
-                        className="button button-light"
-                        onClick={() =>
-                          editing === row.id ? close() : open(row)
-                        }
-                      >
-                        {editing === row.id ? "Close" : "Edit"}
-                      </button>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          type="button"
+                          className="button button-light"
+                          onClick={() =>
+                            editing === row.id ? close() : open(row)
+                          }
+                        >
+                          {editing === row.id ? "Close" : "Edit"}
+                        </button>
+                        {tab === "listings" && (
+                          <button
+                            type="button"
+                            className="button button-light"
+                            style={{ color: "#c93b2b" }}
+                            onClick={() =>
+                              setConfirmState({
+                                type: "delete-listing",
+                                id: row.id,
+                                label: row.title || "this listing",
+                              })
+                            }
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {editing === row.id && formFields()}
                   </div>
@@ -481,6 +607,26 @@ export default function AdminPage() {
           )}
         </section>
       </div>
+      <ConfirmDialog
+        open={Boolean(confirmState)}
+        title={
+          confirmState?.type === "delete-listing"
+            ? "Delete listing?"
+            : "Update listing?"
+        }
+        message={
+          confirmState?.type === "delete-listing"
+            ? `Are you sure you want to delete "${confirmState.label}"? This action cannot be undone.`
+            : `Are you sure you want to save changes to "${confirmState?.label}"?`
+        }
+        confirmLabel={
+          confirmState?.type === "delete-listing" ? "Delete" : "Update"
+        }
+        danger={confirmState?.type === "delete-listing"}
+        busy={confirmBusy}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </main>
   );
 }

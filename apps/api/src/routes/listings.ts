@@ -4,6 +4,7 @@ import { prisma } from '../db.js';
 import { canUseAi, requireAuth } from '../middleware/auth.js';
 import { verifyRecaptcha } from '../middleware/recaptcha.js';
 import { env } from '../config.js';
+import { LISTINGS_COLLECTION, qdrant } from '../qdrant.js';
 
 export const listingsRouter = Router();
 
@@ -132,6 +133,66 @@ listingsRouter.post('/ai-callback', async (req, res, next) => {
       select: { id: true, status: true, moderationStatus: true }
     });
     return res.json({ listing });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+listingsRouter.get('/mine', requireAuth, async (req, res, next) => {
+  try {
+    const listings = await prisma.listing.findMany({
+      where: { sellerId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true }
+    });
+    return res.json({ listings });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const updateOwnListingSchema = z.object({
+  title: z.string().trim().min(5).max(160).optional(),
+  description: z.string().trim().min(20).max(10000).optional(),
+  price: z.coerce.number().finite().nonnegative().optional(),
+  currency: z.string().trim().length(3).optional(),
+  categoryId: z.uuid().optional(),
+  locationId: z.uuid().optional(),
+  status: z.enum(['PUBLISHED', 'ARCHIVED', 'DRAFT']).optional()
+});
+
+listingsRouter.patch('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const existing = await prisma.listing.findUnique({ where: { id: String(req.params.id) } });
+    if (!existing) return res.status(404).json({ error: 'Listing not found' });
+    if (existing.sellerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You can only edit your own listings' });
+    }
+    const input = updateOwnListingSchema.parse(req.body);
+    const listing = await prisma.listing.update({
+      where: { id: existing.id },
+      data: {
+        ...input,
+        ...(input.status === 'PUBLISHED' && !existing.publishedAt ? { publishedAt: new Date() } : {})
+      },
+      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, location: true }
+    });
+    return res.json({ listing });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+listingsRouter.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const existing = await prisma.listing.findUnique({ where: { id: String(req.params.id) } });
+    if (!existing) return res.status(404).json({ error: 'Listing not found' });
+    if (existing.sellerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You can only delete your own listings' });
+    }
+    await prisma.listing.delete({ where: { id: existing.id } });
+    await qdrant.delete(LISTINGS_COLLECTION, { points: [existing.id] }).catch(() => undefined);
+    return res.status(204).send();
   } catch (error) {
     return next(error);
   }

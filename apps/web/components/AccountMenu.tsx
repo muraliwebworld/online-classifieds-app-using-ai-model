@@ -99,6 +99,13 @@ export default function AccountMenu() {
             >
               My profile
             </Link>
+            <Link
+              href="/my-listings"
+              className="button button-light"
+              style={{ display: "block", width: "100%", marginBottom: 6 }}
+            >
+              My listings
+            </Link>
             {user.role === "ADMIN" && (
               <Link
                 href="/admin"

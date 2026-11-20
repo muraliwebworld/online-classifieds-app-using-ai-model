@@ -27,3 +27,26 @@ catalogRouter.get('/categories', async (_req, res, next) => {
 catalogRouter.get('/locations', async (_req, res, next) => {
   try { return res.json({ locations: await prisma.location.findMany({ orderBy: [{ state: 'asc' }, { city: 'asc' }] }) }); } catch (error) { return next(error); }
 });
+catalogRouter.get('/theme', async (_req, res, next) => {
+  try {
+    const rows = await prisma.themeSetting.findMany({
+      where: {
+        key: {
+          in: [
+            'logo_url',
+            'header_color',
+            'site_background_color',
+            'primary_button_color',
+            'secondary_button_color',
+            'footer_background_color'
+          ]
+        }
+      }
+    });
+    const theme: Record<string, unknown> = {};
+    for (const row of rows) theme[row.key] = row.value;
+    return res.json({ theme });
+  } catch (error) {
+    return next(error);
+  }
+});

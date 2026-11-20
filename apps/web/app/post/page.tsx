@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import BrandLogo from "../../components/BrandLogo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 type Option = {
@@ -154,10 +155,7 @@ export default function PostPage() {
     <main className="site-shell">
       <div className="container">
         <header className="header">
-          <Link href="/" className="brand">
-            <span className="brand-mark">✦</span>videxpulse
-            <span style={{ color: "var(--brand)" }}>.</span>
-          </Link>
+          <BrandLogo />
           <Link href="/" className="text-link">
             Cancel
           </Link>

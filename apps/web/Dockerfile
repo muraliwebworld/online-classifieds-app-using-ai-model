@@ -1,12 +1,12 @@
 FROM node:26-alpine AS dependencies
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat git
 COPY package*.json ./
 RUN npm ci
 
 FROM node:26-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat git
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_API_URL

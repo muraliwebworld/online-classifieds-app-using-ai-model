@@ -12,6 +12,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@videxpulse/web-sdk": "github:muraliwebworld/videxpulse#web-sdk",
     "firebase": "^13.4.0",
     "next": "^16.4.6",
     "qrcode.react": "^4.2.0",

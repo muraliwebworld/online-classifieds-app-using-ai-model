@@ -1,3 +1,4 @@
+import VidexpulsePushInit from '../components/VidexpulsePushInit';
 import type { Metadata } from 'next';
 import './globals.css';
 import RecaptchaScript from '../components/RecaptchaScript';
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body><RecaptchaScript />{children}</body>
+      <body><RecaptchaScript />{children}  <VidexpulsePushInit />
+      </body>
     </html>
   );
 }

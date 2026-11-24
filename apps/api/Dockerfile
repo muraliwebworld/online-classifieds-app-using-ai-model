@@ -1,10 +1,8 @@
-FROM node:26-bookworm-slim AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl ca-certificates
 
 COPY package*.json ./
 # The compiler and Prisma CLI are needed while building. Explicitly include
@@ -18,7 +16,7 @@ COPY src ./src
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:26-bookworm-slim AS production
+FROM node:26-alpine AS production
 
 ENV NODE_ENV=production
 ENV PORT=5000
@@ -29,9 +27,7 @@ ENV CLAMAV_PORT=3310
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl ca-certificates
 
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force

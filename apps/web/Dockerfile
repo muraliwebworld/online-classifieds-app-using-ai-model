@@ -1,17 +1,19 @@
-FROM node:26-bookworm-slim AS dependencies
+FROM node:26-alpine AS dependencies
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
 COPY package*.json ./
 RUN npm ci
 
-FROM node:26-bookworm-slim AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build
 
-FROM node:26-bookworm-slim AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

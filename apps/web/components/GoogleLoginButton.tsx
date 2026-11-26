@@ -40,9 +40,11 @@ export default function GoogleLoginButton({ onError, onChallenge }: Props) {
           projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
           appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
         });
+      const googleProvider = new GoogleAuthProvider();
+      googleProvider.setCustomParameters({ prompt: "select_account" });
       const result = await signInWithPopup(
         getAuth(app),
-        new GoogleAuthProvider(),
+        googleProvider,
       );
       const idToken = await result.user.getIdToken();
       const key = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;

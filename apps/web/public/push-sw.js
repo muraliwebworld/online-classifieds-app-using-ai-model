@@ -1,12 +1,17 @@
 // >>> VIDEXPULSE PUSH SDK START
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
+  const payload = event.data ? event.data.json() : {};
+  const notif = payload.notification || payload;
+  const title = notif.title || payload.title || 'Notification';
+  const body = notif.body || payload.body || '';
+  const icon = notif.icon || notif.image || payload.imageUrl || undefined;
+  const clickUrl = payload.fcmOptions?.link || notif.click_action || payload.data?.clickUrl || payload.clickUrl || '/';
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Notification', {
-      body: data.body || '',
-      icon: data.imageUrl || undefined,
-      data
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      data: { ...payload, clickUrl }
     })
   );
 });

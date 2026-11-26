@@ -18,7 +18,32 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification?.data?.clickUrl || '/';
-  event.waitUntil(self.clients.openWindow(targetUrl));
+  const data = event.notification?.data || {};
+  const extra = data.data && typeof data.data === 'object' ? data.data : data;
+  const targetUrl = data.clickUrl || extra.clickUrl || '/';
+  const trackingClickUrl = extra.trackingClickUrl || data.trackingClickUrl || '';
+  const notificationId = extra.notificationId || data.notificationId || '';
+  const appId = extra.appId || data.appId || '';
+  const deviceId = extra.deviceId || data.deviceId || '';
+
+  const tasks = [];
+  if (trackingClickUrl && notificationId) {
+    tasks.push(
+      fetch(trackingClickUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          notificationId,
+          deviceId,
+          platform: 'web',
+          clickUrl: targetUrl
+        }),
+        keepalive: true
+      }).catch(() => {})
+    );
+  }
+  tasks.push(self.clients.openWindow(targetUrl));
+  event.waitUntil(Promise.all(tasks));
 });
 // <<< VIDEXPULSE PUSH SDK END
